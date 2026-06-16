@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 
 
-class RyobiZT54ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a Ryobi ZT54 config flow."""
 
     VERSION = 1
@@ -119,10 +119,10 @@ class RyobiZT54ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ):
         """Create the options flow."""
-        return RyobiZT54OptionsFlow(config_entry)
+        return OptionsFlow(config_entry)
 
 
-class RyobiZT54OptionsFlow(config_entries.OptionsFlow):
+class OptionsFlow(config_entries.OptionsFlow):
     """Handle Ryobi ZT54 options."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
