@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Ryobi ZT54",
+        "description": "Enter the mower Bluetooth address. Likely visible devices:\n{discovered}",
+        "data": {
+          "address": "Bluetooth address",
+          "name": "Name"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Set up {name}",
+        "description": "Do you want to add this Ryobi ZT54 mower?"
+      }
+    },
+    "abort": {
+      "already_configured": "This mower is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ryobi ZT54 options",
+        "data": {
+          "poll_interval": "Poll interval in seconds",
+          "notification_sample_seconds": "Notification sample window in seconds",
+          "characteristic_uuids": "Extra characteristic UUIDs to read",
+          "characteristic_map": "Characteristic map JSON",
+          "experimental_decoder": "Enable conservative experimental decoder",
+          "keep_raw": "Keep raw BLE payloads in diagnostics"
+        },
+        "description": "Use characteristic_map JSON to turn captured UUIDs into sensors, for example: {\"voltage\":{\"uuid\":\"...\",\"type\":\"uint16\",\"scale\":0.01}}"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_level": { "name": "Battery" },
+      "rssi": { "name": "Signal strength" },
+      "voltage": { "name": "Voltage" },
+      "current": { "name": "Current" },
+      "power": { "name": "Power" },
+      "pack_temperature": { "name": "Pack temperature" },
+      "runtime_remaining": { "name": "Runtime remaining" },
+      "blade_hours": { "name": "Blade hours" },
+      "drive_hours": { "name": "Drive hours" },
+      "total_hours": { "name": "Total hours" }
+    },
+    "binary_sensor": {
+      "online": { "name": "Online" },
+      "charging": { "name": "Charging" },
+      "charger_connected": { "name": "Charger connected" },
+      "blades_active": { "name": "Blades active" }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "domain": "ryobi_zt54",
+  "name": "Ryobi ZT54",
+  "bluetooth": [
+    {
+      "local_name": "RYOBI*",
+      "connectable": true
+    },
+    {
+      "local_name": "*Ryobi*",
+      "connectable": true
+    },
+    {
+      "local_name": "*ZT54*",
+      "connectable": true
+    }
+  ],
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["bluetooth"],
+  "documentation": "https://github.com/custom-components/ryobi_zt54",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}
