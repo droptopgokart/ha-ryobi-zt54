@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260616-3",
+      assetVersion: "20260616-5",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -148,12 +148,12 @@ class RyobiZt54DashboardCard extends HTMLElement {
     const driveBays = bays.filter((bay) => bay.present && bay.voltage === 80);
     const accessoryBays = bays.filter((bay) => bay.present && bay.voltage === 40);
     const emptyBays = bays.filter((bay) => !bay.present);
-    const driveVoltage = driveBays.reduce((sum, bay) => sum + (bay.voltage || 0), 0);
-    const accessoryVoltage = accessoryBays.reduce((sum, bay) => sum + (bay.voltage || 0), 0);
+    const driveClass = this.packClass(driveBays);
+    const accessoryClass = this.packClass(accessoryBays);
     const driveAverage = this.averageLevel(driveBays);
     const accessoryAverage = this.averageLevel(accessoryBays);
     const imageExt = charging ? "gif" : "png";
-    const mowerImage = `/local/ryobi-zt54/ryobi-zt54-glow-${tone}.${imageExt}?v=${this.config.assetVersion}`;
+    const mowerImage = `/local/ryobi-zt54/ryobi-zt54-clean-${tone}.${imageExt}?v=${this.config.assetVersion}`;
     const status = charging ? "Charging" : charger ? "Charger connected" : online ? "Ready" : "Offline";
 
     this.innerHTML = `
@@ -437,7 +437,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
               <div class="gauge-value">${battery ?? "N/A"}${battery === null ? "" : "%"}</div>
               <p class="muted" style="text-align:center;">80V drive pack charge shown in app</p>
             </div>
-            ${this.metric("mdi:car-battery", "80V drive pack class total", `${driveVoltage || "N/A"}${driveVoltage ? " V" : ""}`)}
+            ${this.metric("mdi:car-battery", "Drive pack voltage class", driveClass === null ? "N/A" : `${driveClass} V parallel`)}
             ${this.metric("mdi:battery-heart-variant", "80V drive pack average", driveAverage === null ? "N/A" : `${driveAverage}%`)}
             ${this.metric("mdi:battery-outline", "40V accessory bay average", accessoryAverage === null ? "N/A" : `${accessoryAverage}%`)}
             ${this.metric("mdi:counter", "Bays installed", `${presentBays.length} / 7`)}
@@ -446,9 +446,9 @@ class RyobiZt54DashboardCard extends HTMLElement {
           <section class="card panel stack">
             <h2>${this.icon("mdi:battery-multiple")} Battery Bays</h2>
             <div class="battery-layout">
-              ${this.batteryGroup("40V Accessory Bays", "Side 40V batteries shown separately from mower drive charge.", accessoryBays, accessoryVoltage)}
-              ${this.batteryGroup("80V Drive Pack", "Main traction batteries. This group drives the app charge level.", driveBays, driveVoltage)}
-              ${this.batteryGroup("Open Bays", "Installed state from Bluetooth telemetry.", emptyBays, 0)}
+              ${this.batteryGroup("40V Accessory Bays", "Parallel 40V accessory batteries. Voltage class is not summed.", accessoryBays, accessoryClass)}
+              ${this.batteryGroup("80V Drive Pack", "Parallel 80V traction batteries. This group drives the app charge level.", driveBays, driveClass)}
+              ${this.batteryGroup("Open Bays", "Installed state from Bluetooth telemetry.", emptyBays, null)}
             </div>
           </section>
 
@@ -499,6 +499,16 @@ class RyobiZt54DashboardCard extends HTMLElement {
     return Math.round(levels.reduce((sum, level) => sum + level, 0) / levels.length);
   }
 
+  packClass(bays) {
+    const classes = [...new Set(
+      bays
+        .map((bay) => bay.voltage)
+        .filter((voltage) => voltage !== null && voltage > 0),
+    )];
+    if (classes.length !== 1) return classes[0] ?? null;
+    return classes[0];
+  }
+
   metric(icon, label, value) {
     return `<div class="metric"><span class="metric-label">${this.icon(icon)} ${label}</span><strong>${value}</strong></div>`;
   }
@@ -511,12 +521,16 @@ class RyobiZt54DashboardCard extends HTMLElement {
     return `<div class="mini">${this.icon(icon)}<span class="muted">${label}</span><strong>${value}</strong></div>`;
   }
 
-  batteryGroup(title, subtitle, bays, voltageTotal) {
+  batteryGroup(title, subtitle, bays, voltageClass) {
     const average = this.averageLevel(bays);
+    const installed = bays.filter((bay) => bay.present).length;
+    const count = installed || bays.length;
+    const countLabel = installed ? "Installed" : "Slots";
     return `
       <div class="battery-group">
-        <h3><span>${title}</span><strong>${voltageTotal ? `${voltageTotal}V` : ""}</strong></h3>
+        <h3><span>${title}</span><strong>${voltageClass ? `${voltageClass}V class` : "Open"}</strong></h3>
         <p class="group-subtitle">${subtitle}</p>
+        <div class="metric" style="padding:8px 0;"><span class="muted">${countLabel}</span><strong>${count} bay${count === 1 ? "" : "s"}</strong></div>
         <div class="metric" style="padding:8px 0;"><span class="muted">Average</span><strong>${average === null ? "N/A" : `${average}%`}</strong></div>
         <div class="bay-list">
           ${bays.length ? bays.map((bay) => this.bayRow(bay)).join("") : '<div class="muted">None</div>'}
