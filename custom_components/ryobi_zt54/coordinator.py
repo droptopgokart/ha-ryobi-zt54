@@ -35,6 +35,7 @@ from .parser import (
     decode_ryobi_battery_bay,
     decode_ryobi_status,
     decode_text,
+    derive_main_battery_level,
     experimental_decode,
     normalise_uuid,
     parse_advertisement,
@@ -120,8 +121,12 @@ class RyobiZT54Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         mappings = parse_characteristic_map(self.options.get(CONF_CHARACTERISTIC_MAP))
         data.update(apply_characteristic_map(raw_payloads, mappings))
 
+        main_battery_level = derive_main_battery_level(data)
+        if main_battery_level is not None:
+            data["battery_level"] = main_battery_level
+
         if self.options.get(CONF_EXPERIMENTAL_DECODER, True):
-            data.update(experimental_decode(raw_payloads))
+            data.update(experimental_decode(raw_payloads, data))
 
         if self.options.get(CONF_KEEP_RAW, True):
             data["raw_characteristics"] = {

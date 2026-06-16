@@ -153,13 +153,16 @@ def decode_scalar(
     return struct.unpack(endian + fmt, payload[:size])[0]
 
 
-def experimental_decode(payloads: dict[str, bytes]) -> dict[str, Any]:
+def experimental_decode(
+    payloads: dict[str, bytes], existing: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Decode conservative hints from unknown Ryobi payloads.
 
     This intentionally only extracts values with strong signals. Unknown bytes
     remain available through diagnostics and the entity extra attributes.
     """
     decoded: dict[str, Any] = {}
+    existing = existing or {}
 
     for uuid, payload in payloads.items():
         text = decode_text(payload)
@@ -168,7 +171,12 @@ def experimental_decode(payloads: dict[str, bytes]) -> dict[str, Any]:
 
         # Some BLE devices mirror a one-byte battery percentage outside the
         # standard Battery Service. Only accept physically plausible values.
-        if len(payload) == 1 and 0 <= payload[0] <= 100:
+        if (
+            "battery_level" not in existing
+            and len(payload) == 1
+            and 0 <= payload[0] <= 100
+            and short_uuid(uuid) in {"2a19", "battery", "batt"}
+        ):
             decoded.setdefault("battery_level", payload[0])
 
     return decoded
@@ -217,6 +225,21 @@ def decode_ryobi_battery_bay(payload: bytes) -> dict[str, Any]:
         decoded[f"battery_bay_{bay}_present"] = payload[1] != 0
 
     return decoded
+
+
+def derive_main_battery_level(decoded: dict[str, Any]) -> int | None:
+    """Derive the mower app's main charge level from installed 80V bays."""
+    levels: list[int] = []
+    for bay in range(1, 8):
+        voltage = decoded.get(f"battery_bay_{bay}_voltage")
+        level = decoded.get(f"battery_bay_{bay}_level")
+        present = decoded.get(f"battery_bay_{bay}_present")
+        if voltage == 80 and present and isinstance(level, int) and 0 <= level <= 100:
+            levels.append(level)
+
+    if not levels:
+        return None
+    return round(sum(levels) / len(levels))
 
 
 def short_uuid(uuid: str) -> str:
