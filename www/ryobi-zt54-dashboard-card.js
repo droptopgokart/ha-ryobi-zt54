@@ -565,10 +565,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v2", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v3", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v2",
+  type: "ryobi-zt54-dashboard-card-v3",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
