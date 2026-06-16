@@ -1,0 +1,6 @@
+{
+  "name": "Ryobi ZT54",
+  "render_readme": true,
+  "domains": ["sensor", "binary_sensor"],
+  "homeassistant": "2026.5.0"
+}

@@ -30,7 +30,7 @@
           "experimental_decoder": "Enable conservative experimental decoder",
           "keep_raw": "Keep raw BLE payloads in diagnostics"
         },
-        "description": "Use characteristic_map JSON to turn captured UUIDs into sensors, for example: {\"voltage\":{\"uuid\":\"...\",\"type\":\"uint16\",\"scale\":0.01}}"
+        "description": "Use characteristic_map JSON to turn captured UUIDs into sensors."
       }
     }
   },
