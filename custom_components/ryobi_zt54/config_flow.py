@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.components import bluetooth
-from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
 
@@ -26,6 +25,9 @@ from .const import (
     MIN_NOTIFICATION_SAMPLE_SECONDS,
     MIN_POLL_INTERVAL,
 )
+
+if TYPE_CHECKING:
+    from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 
 
 class RyobiZT54ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):

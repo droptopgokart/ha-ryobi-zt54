@@ -6,9 +6,10 @@ import json
 import logging
 import struct
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
+if TYPE_CHECKING:
+    from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 
 from .const import ATTR_MANUFACTURER_DATA, ATTR_SERVICE_DATA
 

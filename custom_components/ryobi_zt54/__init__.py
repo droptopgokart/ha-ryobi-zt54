@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from .const import CONF_ADDRESS, DOMAIN, PLATFORMS
 from .coordinator import RyobiZT54Coordinator
 
-RyobiZT54ConfigEntry = ConfigEntry[RyobiZT54Coordinator]
+RyobiZT54ConfigEntry = ConfigEntry
 
 
 async def async_setup_entry(
