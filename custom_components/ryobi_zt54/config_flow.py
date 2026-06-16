@@ -37,7 +37,7 @@ class RyobiZT54ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
-    ) -> config_entries.ConfigFlowResult:
+    ):
         """Handle Bluetooth discovery."""
         await self.async_set_unique_id(discovery_info.address)
         self._abort_if_unique_id_configured()
@@ -49,7 +49,7 @@ class RyobiZT54ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_bluetooth_confirm(
         self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    ):
         """Confirm a Bluetooth-discovered mower."""
         assert self._discovery is not None
         if user_input is not None:
@@ -70,7 +70,7 @@ class RyobiZT54ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    ):
         """Handle manual setup."""
         errors: dict[str, str] = {}
 
@@ -115,7 +115,7 @@ class RyobiZT54ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> config_entries.OptionsFlow:
+    ):
         """Create the options flow."""
         return RyobiZT54OptionsFlow(config_entry)
 
@@ -129,7 +129,7 @@ class RyobiZT54OptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> config_entries.ConfigFlowResult:
+    ):
         """Manage options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
