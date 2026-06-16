@@ -84,7 +84,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
 
   mainBattery() {
     const direct = this.numeric(this.config.entities.battery);
-    if (direct !== null && direct > 0) return Math.round(direct);
+    if (direct !== null && direct > 0) {
+      const rounded = Math.round(direct);
+      return rounded === 100 && this.isCharging() ? 99 : rounded;
+    }
 
     const traction = [];
     for (let bay = 1; bay <= 7; bay += 1) {
