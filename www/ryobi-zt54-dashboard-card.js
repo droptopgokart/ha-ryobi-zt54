@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260616-5",
+      assetVersion: "20260618-1",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -87,8 +87,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   mainBattery() {
     const direct = this.numeric(this.config.entities.battery);
     if (direct !== null && direct > 0) {
-      const rounded = Math.round(direct);
-      return rounded === 100 && this.isCharging() ? 99 : rounded;
+      return Math.round(direct);
     }
 
     const driveLevels = this.allBays()
@@ -99,7 +98,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
     const average = Math.round(
       driveLevels.reduce((sum, level) => sum + level, 0) / driveLevels.length,
     );
-    return average === 100 && this.isCharging() ? 99 : average;
+    return average;
   }
 
   chargeColor(percent) {
@@ -152,8 +151,9 @@ class RyobiZt54DashboardCard extends HTMLElement {
     const accessoryClass = this.packClass(accessoryBays);
     const driveAverage = this.averageLevel(driveBays);
     const accessoryAverage = this.averageLevel(accessoryBays);
-    const imageExt = charging ? "gif" : "png";
-    const mowerImage = `/local/ryobi-zt54/ryobi-zt54-clean-${tone}.${imageExt}?v=${this.config.assetVersion}`;
+    const ringExt = charging ? "gif" : "png";
+    const mowerImage = `/local/ryobi-zt54/ryobi-zt54-mower-clean.png?v=${this.config.assetVersion}`;
+    const ringImage = `/local/ryobi-zt54/ryobi-zt54-ring-${tone}.${ringExt}?v=${this.config.assetVersion}`;
     const status = charging ? "Charging" : charger ? "Charger connected" : online ? "Ready" : "Offline";
 
     this.innerHTML = `
@@ -227,18 +227,38 @@ class RyobiZt54DashboardCard extends HTMLElement {
           align-items: center;
         }
         .mower-stage {
-          min-height: 254px;
+          min-height: 286px;
           display: grid;
           align-items: end;
           justify-items: center;
           margin-top: 8px;
         }
-        .mower-image {
-          width: min(100%, 510px);
-          max-height: 292px;
+        .mower-visual {
+          position: relative;
+          width: min(100%, 560px);
+          aspect-ratio: 1.55;
+        }
+        .glow-ring {
+          position: absolute;
+          left: 50%;
+          bottom: 2px;
+          width: 96%;
+          transform: translateX(-50%);
           object-fit: contain;
-          filter: drop-shadow(0 0 16px color-mix(in srgb, var(--accent) 38%, transparent));
-          border-radius: 6px;
+          z-index: 1;
+          pointer-events: none;
+        }
+        .mower-image {
+          position: absolute;
+          left: 50%;
+          bottom: 28px;
+          width: 96%;
+          max-height: 315px;
+          transform: translateX(-50%);
+          object-fit: contain;
+          filter: drop-shadow(0 18px 24px rgba(0,0,0,.5));
+          z-index: 2;
+          pointer-events: none;
         }
         .charge-side {
           display: flex;
@@ -416,7 +436,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
               <h1>${this.config.title}</h1>
               <div class="connected">${this.icon("mdi:bluetooth")} ${online ? "Connected" : "Disconnected"}</div>
               <div class="mower-stage">
-                <img class="mower-image" src="${mowerImage}" alt="Ryobi 54 inch zero-turn mower with charge glow">
+                <div class="mower-visual">
+                  <img class="glow-ring" src="${ringImage}" alt="" aria-hidden="true">
+                  <img class="mower-image" src="${mowerImage}" alt="Ryobi 54 inch zero-turn mower">
+                </div>
               </div>
             </div>
             <div class="charge-side">
@@ -565,10 +588,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v3", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v4", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v3",
+  type: "ryobi-zt54-dashboard-card-v4",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
