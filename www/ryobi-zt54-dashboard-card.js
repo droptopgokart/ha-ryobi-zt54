@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260618-2",
+      assetVersion: "20260618-3",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -129,26 +129,23 @@ class RyobiZt54DashboardCard extends HTMLElement {
   async refreshTelemetry() {
     if (this._refreshing) return;
     this._refreshing = true;
-    this.setRefreshBusy(true);
+    this._lastManualRefresh = new Date();
+    this._refreshResult = "Refreshing now";
+    this.render();
     try {
       await this._hass.callService("homeassistant", "update_entity", {
         entity_id: this.config.entities.signal,
       });
+      this._refreshResult = "Refresh requested";
+    } catch (err) {
+      this._refreshResult = "Refresh failed";
+      throw err;
     } finally {
       window.setTimeout(() => {
         this._refreshing = false;
-        this.setRefreshBusy(false);
+        this.render();
       }, 1200);
     }
-  }
-
-  setRefreshBusy(busy) {
-    this.querySelectorAll("[data-refresh-button]").forEach((button) => {
-      const label = button.dataset.label || "Refresh";
-      button.disabled = busy;
-      button.classList.toggle("busy", busy);
-      button.innerHTML = `${this.icon(busy ? "mdi:loading" : "mdi:refresh")} ${busy ? "Refreshing..." : label}`;
-    });
   }
 
   render() {
@@ -174,6 +171,12 @@ class RyobiZt54DashboardCard extends HTMLElement {
     const mowerImage = `/local/ryobi-zt54/ryobi-zt54-mower-clean.png?v=${this.config.assetVersion}`;
     const ringImage = `/local/ryobi-zt54/ryobi-zt54-ring-${tone}.${ringExt}?v=${this.config.assetVersion}`;
     const status = charging ? "Charging" : charger ? "Charger connected" : online ? "Ready" : "Offline";
+    const refreshLabel = this._refreshing ? "Refreshing..." : "Refresh Telemetry";
+    const refreshToolsLabel = this._refreshing ? "Refreshing..." : "Refresh Data";
+    const refreshIcon = this._refreshing ? "mdi:loading" : "mdi:refresh";
+    const manualRefreshText = this._lastManualRefresh
+      ? `${this._refreshResult || "Refresh requested"} ${this.relative(this._lastManualRefresh.toISOString())}`
+      : "Not tapped this session";
 
     this.innerHTML = `
       <style>
@@ -478,7 +481,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
                 <p>Charge Level</p>
                 <p class="muted">${charging ? "Charging to 100%" : "Live mower telemetry"}</p>
               </div>
-              <button class="tool" id="refresh-main" data-refresh-button data-label="Refresh Telemetry">${this.icon("mdi:refresh")} Refresh Telemetry</button>
+              <button type="button" class="tool ${this._refreshing ? "busy" : ""}" id="refresh-main" ${this._refreshing ? "disabled" : ""}>${this.icon(refreshIcon)} ${refreshLabel}</button>
             </div>
           </section>
 
@@ -529,8 +532,9 @@ class RyobiZt54DashboardCard extends HTMLElement {
           <section class="card panel stack">
             <h2>${this.icon("mdi:tune-variant")} Telemetry Tools</h2>
             <div class="tool-grid">
-              <button class="tool" id="refresh-tools" data-refresh-button data-label="Refresh Data">${this.icon("mdi:refresh")} Refresh Data</button>
+              <button type="button" class="tool ${this._refreshing ? "busy" : ""}" id="refresh-tools" ${this._refreshing ? "disabled" : ""}>${this.icon(refreshIcon)} ${refreshToolsLabel}</button>
               <div class="mini">${this.icon("mdi:clock-check-outline")}<span class="muted">Last signal update</span><strong>${this.relative(this.state(this.config.entities.signal)?.last_updated)}</strong></div>
+              <div class="mini">${this.icon("mdi:gesture-tap-button")}<span class="muted">Manual refresh</span><strong>${manualRefreshText}</strong></div>
             </div>
           </section>
 
@@ -541,8 +545,16 @@ class RyobiZt54DashboardCard extends HTMLElement {
       </div>
     `;
 
-    this.querySelector("#refresh-main")?.addEventListener("click", () => this.refreshTelemetry());
-    this.querySelector("#refresh-tools")?.addEventListener("click", () => this.refreshTelemetry());
+    this.querySelector("#refresh-main")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.refreshTelemetry();
+    });
+    this.querySelector("#refresh-tools")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.refreshTelemetry();
+    });
   }
 
   averageLevel(bays) {
@@ -617,10 +629,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v4", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v5", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v4",
+  type: "ryobi-zt54-dashboard-card-v5",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
