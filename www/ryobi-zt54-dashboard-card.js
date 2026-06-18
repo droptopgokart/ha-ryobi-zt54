@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260618-3",
+      assetVersion: "20260618-4",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -123,6 +123,22 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 
   icon(name) {
+    if (name === "zt54:zero-turn") {
+      return `
+        <svg class="zt-icon" viewBox="0 0 64 40" aria-hidden="true" focusable="false">
+          <path d="M15 24h29c4.8 0 8.7-2 11.7-6l2.4 1.8c-3.6 5.1-8.4 7.7-14.1 7.7H15z" />
+          <path d="M19 22l6-11h13l8 11h-5.2l-5.5-7.3h-7.8L23.2 22z" />
+          <path d="M34 12h7.4c4.2 0 7.8 2.8 8.8 6.8l.8 3.2h-5.2l-.4-1.9c-.5-2.4-2.6-4.1-5.1-4.1H34z" />
+          <path d="M12.8 21.5c0-4 2.9-7.2 6.4-7.2h4.1v3.4h-4.1c-1.6 0-3 1.7-3 3.8z" />
+          <path d="M24.5 8h9.2v3.4h-9.2z" />
+          <circle cx="17.5" cy="29.5" r="7.2" />
+          <circle cx="48.5" cy="29.5" r="7.2" />
+          <circle class="zt-cutout" cx="17.5" cy="29.5" r="3.1" />
+          <circle class="zt-cutout" cx="48.5" cy="29.5" r="3.1" />
+          <path d="M6 28h6v3H6zM54 28h5v3h-5z" />
+        </svg>
+      `;
+    }
     return `<ha-icon icon="${name}"></ha-icon>`;
   }
 
@@ -195,6 +211,18 @@ class RyobiZt54DashboardCard extends HTMLElement {
           width: 20px;
           height: 20px;
           color: var(--accent);
+        }
+        .zt-icon {
+          width: 22px;
+          height: 22px;
+          color: var(--accent);
+          fill: currentColor;
+          flex: 0 0 auto;
+          display: inline-block;
+          vertical-align: middle;
+        }
+        .zt-icon .zt-cutout {
+          fill: var(--card);
         }
         .wrap {
           min-height: 100%;
@@ -510,12 +538,12 @@ class RyobiZt54DashboardCard extends HTMLElement {
           <section class="card panel stack">
             <h2>${this.icon("mdi:clock-outline")} Runtime & Usage</h2>
             ${this.usage("mdi:timer-outline", "Total Run Hours", this.fmt(this.config.entities.totalHours, " hrs"))}
-            ${this.usage("mdi:mower-bag", "Inspect Blades In", this.fmt(this.config.entities.bladeHours, " hrs"))}
+            ${this.usage("zt54:zero-turn", "Inspect Blades In", this.fmt(this.config.entities.bladeHours, " hrs"))}
             ${this.usage("mdi:chart-bar", "Drive Hours", this.fmt(this.config.entities.driveHours, " hrs"))}
           </section>
 
           <section class="card panel stack">
-            <h2>${this.icon("mdi:mower")} Blade Status</h2>
+            <h2>${this.icon("zt54:zero-turn")} Blade Status</h2>
             ${this.metric("mdi:fan", "Blades Active", this.bool(this.config.entities.bladesActive) ? "Yes" : "No")}
             ${this.metric("mdi:timer-sand", "Blade Hours", this.fmt(this.config.entities.bladeHours, " hrs"))}
           </section>
@@ -629,10 +657,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v5", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v6", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v5",
+  type: "ryobi-zt54-dashboard-card-v6",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
