@@ -123,8 +123,6 @@ class RyobiZT54Coordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         main_battery_level = derive_main_battery_level(data)
         if main_battery_level is not None:
-            if main_battery_level == 100 and data.get("charging"):
-                main_battery_level = 99
             data["battery_level"] = main_battery_level
 
         if self.options.get(CONF_EXPERIMENTAL_DECODER, True):

@@ -207,18 +207,20 @@ def decode_ryobi_battery_bay(payload: bytes) -> dict[str, Any]:
     if len(payload) < 3:
         return {}
 
-    bay = payload[0]
+    slot = payload[0]
     voltage_class = {0x10: 40, 0x20: 80}.get(payload[1], payload[1])
     level = payload[2]
     decoded: dict[str, Any] = {
         "ryobi_battery_bay_raw": payload.hex(),
     }
 
-    if bay == 0:
+    if payload[1] != 0:
         decoded["battery_bay_reference_level"] = level
         decoded["battery_bay_reference_voltage"] = voltage_class
-        return decoded
 
+    # The mower reports the seven physical bays as zero-based slots 0-6.
+    # Slot 7 is emitted as an empty/end marker, not as a physical eighth bay.
+    bay = slot + 1
     if 1 <= bay <= 7:
         decoded[f"battery_bay_{bay}_level"] = level
         decoded[f"battery_bay_{bay}_voltage"] = voltage_class
