@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260618-1",
+      assetVersion: "20260618-2",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -127,8 +127,27 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 
   async refreshTelemetry() {
-    await this._hass.callService("homeassistant", "update_entity", {
-      entity_id: this.config.entities.signal,
+    if (this._refreshing) return;
+    this._refreshing = true;
+    this.setRefreshBusy(true);
+    try {
+      await this._hass.callService("homeassistant", "update_entity", {
+        entity_id: this.config.entities.signal,
+      });
+    } finally {
+      window.setTimeout(() => {
+        this._refreshing = false;
+        this.setRefreshBusy(false);
+      }, 1200);
+    }
+  }
+
+  setRefreshBusy(busy) {
+    this.querySelectorAll("[data-refresh-button]").forEach((button) => {
+      const label = button.dataset.label || "Refresh";
+      button.disabled = busy;
+      button.classList.toggle("busy", busy);
+      button.innerHTML = `${this.icon(busy ? "mdi:loading" : "mdi:refresh")} ${busy ? "Refreshing..." : label}`;
     });
   }
 
@@ -295,6 +314,16 @@ class RyobiZt54DashboardCard extends HTMLElement {
           font: inherit;
           cursor: pointer;
         }
+        button.tool:disabled {
+          cursor: progress;
+          opacity: .82;
+        }
+        button.tool.busy ha-icon {
+          animation: spin 850ms linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
         .gauge {
           width: 220px;
           height: 130px;
@@ -449,7 +478,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
                 <p>Charge Level</p>
                 <p class="muted">${charging ? "Charging to 100%" : "Live mower telemetry"}</p>
               </div>
-              <button class="tool" id="refresh-main">${this.icon("mdi:refresh")} Refresh Telemetry</button>
+              <button class="tool" id="refresh-main" data-refresh-button data-label="Refresh Telemetry">${this.icon("mdi:refresh")} Refresh Telemetry</button>
             </div>
           </section>
 
@@ -500,7 +529,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
           <section class="card panel stack">
             <h2>${this.icon("mdi:tune-variant")} Telemetry Tools</h2>
             <div class="tool-grid">
-              <button class="tool" id="refresh-tools">${this.icon("mdi:refresh")} Refresh Data</button>
+              <button class="tool" id="refresh-tools" data-refresh-button data-label="Refresh Data">${this.icon("mdi:refresh")} Refresh Data</button>
               <div class="mini">${this.icon("mdi:clock-check-outline")}<span class="muted">Last signal update</span><strong>${this.relative(this.state(this.config.entities.signal)?.last_updated)}</strong></div>
             </div>
           </section>
