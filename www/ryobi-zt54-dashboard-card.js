@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260618-5",
+      assetVersion: "20260618-6",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -657,10 +657,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v7", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v8", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v7",
+  type: "ryobi-zt54-dashboard-card-v8",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
