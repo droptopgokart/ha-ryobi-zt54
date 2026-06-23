@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260623-2",
+      assetVersion: "20260623-3",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -178,7 +178,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
     this.scrollHistoryIntoView();
 
     const end = new Date();
-    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
     try {
       const response = await this.loadHistory(start, end, selection);
       const points = this.historyPoints(response, selection);
@@ -855,7 +855,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
         <div class="history-head">
           <div>
             <h2>${this.icon("mdi:chart-line")} ${this._historySelection.title}</h2>
-            <p class="muted">${this._historyFallback ? "Current value shown because recorder history is empty" : "Last 24 hours"}</p>
+            <p class="muted">${this._historyFallback ? "Current value shown because recorder history is empty" : "Last 7 days"}</p>
           </div>
           <button type="button" class="icon-button" id="close-history">${this.icon("mdi:close")}</button>
         </div>
@@ -983,10 +983,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v10", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v11", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v10",
+  type: "ryobi-zt54-dashboard-card-v11",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
