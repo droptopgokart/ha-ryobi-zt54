@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260623-3",
+      assetVersion: "20260623-4",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -179,6 +179,8 @@ class RyobiZt54DashboardCard extends HTMLElement {
 
     const end = new Date();
     const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+    this._historyStart = start.getTime();
+    this._historyEnd = end.getTime();
     try {
       const response = await this.loadHistory(start, end, selection);
       const points = this.historyPoints(response, selection);
@@ -203,6 +205,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
           entity_ids: selection.entities,
           minimal_response: false,
           no_attributes: true,
+          significant_changes_only: false,
         });
       } catch (err) {
         // Fall through to the REST API. Some frontend contexts do not expose
@@ -219,6 +222,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
       end_time: end.toISOString(),
       minimal_response: "0",
       no_attributes: "1",
+      significant_changes_only: "0",
     });
     return this._hass.callApi(
       "GET",
@@ -670,6 +674,15 @@ class RyobiZt54DashboardCard extends HTMLElement {
         .history-fill {
           fill: color-mix(in srgb, var(--accent) 18%, transparent);
         }
+        .history-axis {
+          fill: var(--muted);
+          font-size: 12px;
+        }
+        .history-grid-line {
+          stroke: rgba(255,255,255,.12);
+          stroke-width: 1;
+          vector-effect: non-scaling-stroke;
+        }
         .history-stats {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -881,28 +894,48 @@ class RyobiZt54DashboardCard extends HTMLElement {
       return '<div class="history-empty">No battery history found for this period</div>';
     }
     const width = 720;
-    const height = 180;
+    const height = 210;
     const pad = 16;
-    const minTime = Math.min(...points.map((point) => point.time));
-    const maxTime = Math.max(...points.map((point) => point.time));
+    const chartBottom = height - 34;
+    const rangeStart = this._historyStart || Math.min(...points.map((point) => point.time));
+    const rangeEnd = this._historyEnd || Math.max(...points.map((point) => point.time));
     const minValue = Math.min(0, Math.min(...points.map((point) => point.value)));
     const maxValue = Math.max(100, Math.max(...points.map((point) => point.value)));
     const xFor = (time) => {
-      if (maxTime === minTime) return width - pad;
-      return pad + ((time - minTime) / (maxTime - minTime)) * (width - pad * 2);
+      if (rangeEnd === rangeStart) return width - pad;
+      return pad + ((time - rangeStart) / (rangeEnd - rangeStart)) * (width - pad * 2);
     };
     const yFor = (value) => {
       if (maxValue === minValue) return height / 2;
-      return height - pad - ((value - minValue) / (maxValue - minValue)) * (height - pad * 2);
+      return chartBottom - ((value - minValue) / (maxValue - minValue)) * (chartBottom - pad);
     };
-    const line = points
-      .map((point, index) => `${index === 0 ? "M" : "L"} ${xFor(point.time).toFixed(1)} ${yFor(point.value).toFixed(1)}`)
-      .join(" ");
-    const first = points[0];
-    const last = points[points.length - 1];
-    const area = `${line} L ${xFor(last.time).toFixed(1)} ${height - pad} L ${xFor(first.time).toFixed(1)} ${height - pad} Z`;
+    const sorted = [...points].sort((a, b) => a.time - b.time);
+    let line = "";
+    sorted.forEach((point, index) => {
+      const x = xFor(point.time).toFixed(1);
+      const y = yFor(point.value).toFixed(1);
+      if (index === 0) {
+        line += `M ${x} ${y}`;
+      } else {
+        const previousY = yFor(sorted[index - 1].value).toFixed(1);
+        line += ` L ${x} ${previousY} L ${x} ${y}`;
+      }
+    });
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const area = `${line} L ${xFor(last.time).toFixed(1)} ${chartBottom} L ${xFor(first.time).toFixed(1)} ${chartBottom} Z`;
+    const ticks = Array.from({ length: 8 }, (_, index) => {
+      const time = rangeStart + ((rangeEnd - rangeStart) / 7) * index;
+      const x = xFor(time);
+      const label = new Date(time).toLocaleDateString(undefined, { month: "numeric", day: "numeric" });
+      return `
+        <line class="history-grid-line" x1="${x.toFixed(1)}" y1="${pad}" x2="${x.toFixed(1)}" y2="${chartBottom}"></line>
+        <text class="history-axis" x="${x.toFixed(1)}" y="${height - 10}" text-anchor="${index === 0 ? "start" : index === 7 ? "end" : "middle"}">${label}</text>
+      `;
+    }).join("");
     return `
       <svg class="history-graph" viewBox="0 0 ${width} ${height}" role="img" aria-label="${this._historySelection.title} battery history">
+        ${ticks}
         <path class="history-fill" d="${area}"></path>
         <path class="history-path" d="${line}"></path>
       </svg>
@@ -983,10 +1016,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v11", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v12", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v11",
+  type: "ryobi-zt54-dashboard-card-v12",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
