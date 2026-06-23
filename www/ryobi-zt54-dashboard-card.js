@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260618-6",
+      assetVersion: "20260623-1",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -164,6 +164,76 @@ class RyobiZt54DashboardCard extends HTMLElement {
     }
   }
 
+  batteryEntityId(index) {
+    return `sensor.ryobi_zero_turn_battery_bay_${index}`;
+  }
+
+  async showBatteryHistory(selection) {
+    if (!this._hass?.callWS || !selection?.entities?.length) return;
+    this._historySelection = selection;
+    this._historyLoading = true;
+    this._historyError = "";
+    this._historyPoints = [];
+    this.render();
+
+    const end = new Date();
+    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    try {
+      const response = await this._hass.callWS({
+        type: "history/history_during_period",
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        entity_ids: selection.entities,
+        minimal_response: false,
+        no_attributes: true,
+      });
+      this._historyPoints = this.historyPoints(response, selection);
+    } catch (err) {
+      this._historyError = "Could not load history";
+    } finally {
+      this._historyLoading = false;
+      this.render();
+    }
+  }
+
+  historyPoints(response, selection) {
+    const buckets = Array.isArray(response)
+      ? Object.fromEntries(selection.entities.map((entity, index) => [entity, response[index] || []]))
+      : response || {};
+    const samples = [];
+    for (const entity of selection.entities) {
+      const rows = buckets[entity] || [];
+      for (const row of rows) {
+        const value = Number(row.state);
+        const time = Date.parse(row.last_changed || row.last_updated);
+        if (Number.isFinite(value) && Number.isFinite(time)) {
+          samples.push({ entity, time, value });
+        }
+      }
+    }
+    samples.sort((a, b) => a.time - b.time);
+
+    if (selection.mode !== "average") {
+      return samples.map((sample) => ({ time: sample.time, value: sample.value }));
+    }
+
+    const latest = {};
+    const points = [];
+    for (const sample of samples) {
+      latest[sample.entity] = sample.value;
+      const values = selection.entities
+        .map((entity) => latest[entity])
+        .filter((value) => Number.isFinite(value));
+      if (values.length) {
+        points.push({
+          time: sample.time,
+          value: Math.round(values.reduce((sum, value) => sum + value, 0) / values.length),
+        });
+      }
+    }
+    return points;
+  }
+
   render() {
     if (!this._hass || !this.config) return;
 
@@ -183,6 +253,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
     const accessoryClass = this.packClass(accessoryBays);
     const driveAverage = this.averageLevel(driveBays);
     const accessoryAverage = this.averageLevel(accessoryBays);
+    const allAverage = this.averageLevel(presentBays);
+    const driveEntities = driveBays.map((bay) => this.batteryEntityId(bay.index));
+    const accessoryEntities = accessoryBays.map((bay) => this.batteryEntityId(bay.index));
+    const allEntities = presentBays.map((bay) => this.batteryEntityId(bay.index));
     const ringExt = charging ? "gif" : "png";
     const mowerImage = `/local/ryobi-zt54/ryobi-zt54-mower-clean.png?v=${this.config.assetVersion}`;
     const ringImage = `/local/ryobi-zt54/ryobi-zt54-ring-${tone}.${ringExt}?v=${this.config.assetVersion}`;
@@ -332,6 +406,22 @@ class RyobiZt54DashboardCard extends HTMLElement {
           text-shadow: 0 0 24px color-mix(in srgb, var(--accent) 65%, transparent);
         }
         .percent span { font-size: 32px; }
+        .history-trigger {
+          cursor: pointer;
+          border-radius: 7px;
+          transition: background .15s ease, border-color .15s ease;
+        }
+        .history-trigger:hover {
+          background: color-mix(in srgb, var(--accent) 9%, transparent);
+        }
+        .click-value {
+          padding: 3px 6px;
+          margin: -3px -6px;
+          border: 1px solid transparent;
+        }
+        .click-value:hover {
+          border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+        }
         .button, button.tool {
           border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
           background: color-mix(in srgb, var(--accent) 10%, #121820);
@@ -482,6 +572,63 @@ class RyobiZt54DashboardCard extends HTMLElement {
           color: var(--muted);
           text-align: center;
         }
+        .history-card {
+          grid-column: 1 / -1;
+        }
+        .history-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+        }
+        .icon-button {
+          width: 38px;
+          height: 38px;
+          border-radius: 7px;
+          border: 1px solid var(--line);
+          background: rgba(255,255,255,.03);
+          color: var(--text);
+          display: inline-grid;
+          place-items: center;
+          cursor: pointer;
+        }
+        .history-graph {
+          width: 100%;
+          height: 180px;
+          margin-top: 12px;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          background:
+            linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px),
+            rgba(255,255,255,.02);
+          background-size: 100% 25%, 16.66% 100%, auto;
+        }
+        .history-path {
+          fill: none;
+          stroke: var(--accent);
+          stroke-width: 3;
+          vector-effect: non-scaling-stroke;
+          filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 70%, transparent));
+        }
+        .history-fill {
+          fill: color-mix(in srgb, var(--accent) 18%, transparent);
+        }
+        .history-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+          margin-top: 12px;
+        }
+        .history-empty {
+          min-height: 120px;
+          display: grid;
+          place-items: center;
+          color: var(--muted);
+          border: 1px dashed var(--line);
+          border-radius: 8px;
+          margin-top: 12px;
+        }
         @media (max-width: 900px) {
           .grid, .hero, .battery-layout { grid-template-columns: 1fr; }
           .charge-side { align-items: flex-start; }
@@ -504,7 +651,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
             </div>
             <div class="charge-side">
               <div class="status">${this.icon(charging ? "mdi:battery-charging" : "mdi:battery")} ${status}</div>
-              <div class="percent">${battery ?? "N/A"}${battery === null ? "" : "<span>%</span>"}</div>
+              <div class="percent history-trigger" data-history="main">${battery ?? "N/A"}${battery === null ? "" : "<span>%</span>"}</div>
               <div>
                 <p>Charge Level</p>
                 <p class="muted">${charging ? "Charging to 100%" : "Live mower telemetry"}</p>
@@ -517,23 +664,26 @@ class RyobiZt54DashboardCard extends HTMLElement {
             <h2>${this.icon("mdi:battery-high")} Battery Overview</h2>
             <div>
               <div class="gauge"></div>
-              <div class="gauge-value">${battery ?? "N/A"}${battery === null ? "" : "%"}</div>
+              <div class="gauge-value history-trigger click-value" data-history="main">${battery ?? "N/A"}${battery === null ? "" : "%"}</div>
               <p class="muted" style="text-align:center;">80V drive pack charge shown in app</p>
             </div>
             ${this.metric("mdi:car-battery", "Drive pack voltage class", driveClass === null ? "N/A" : `${driveClass} V parallel`)}
-            ${this.metric("mdi:battery-heart-variant", "80V drive pack average", driveAverage === null ? "N/A" : `${driveAverage}%`)}
-            ${this.metric("mdi:battery-outline", "40V accessory bay average", accessoryAverage === null ? "N/A" : `${accessoryAverage}%`)}
+            ${this.metric("mdi:battery-heart-variant", "80V drive pack average", driveAverage === null ? "N/A" : `${driveAverage}%`, "drive-average")}
+            ${this.metric("mdi:battery-outline", "40V bay average", accessoryAverage === null ? "N/A" : `${accessoryAverage}%`, "accessory-average")}
+            ${this.metric("mdi:battery-sync", "All installed bay average", allAverage === null ? "N/A" : `${allAverage}%`, "all-average")}
             ${this.metric("mdi:counter", "Bays installed", `${presentBays.length} / 7`)}
           </section>
 
           <section class="card panel stack">
             <h2>${this.icon("mdi:battery-multiple")} Battery Bays</h2>
             <div class="battery-layout">
-              ${this.batteryGroup("40V Accessory Bays", "Parallel 40V accessory batteries. Voltage class is not summed.", accessoryBays, accessoryClass)}
-              ${this.batteryGroup("80V Drive Pack", "Parallel 80V traction batteries. This group drives the app charge level.", driveBays, driveClass)}
+              ${this.batteryGroup("40V Accessory Bays", "Parallel 40V accessory batteries. Voltage class is not summed.", accessoryBays, accessoryClass, "accessory-average")}
+              ${this.batteryGroup("80V Drive Pack", "Parallel 80V traction batteries. This group drives the app charge level.", driveBays, driveClass, "drive-average")}
               ${this.batteryGroup("Open Bays", "Installed state from Bluetooth telemetry.", emptyBays, null)}
             </div>
           </section>
+
+          ${this.historyPanel()}
 
           <section class="card panel stack">
             <h2>${this.icon("mdi:clock-outline")} Runtime & Usage</h2>
@@ -583,6 +733,124 @@ class RyobiZt54DashboardCard extends HTMLElement {
       event.stopPropagation();
       this.refreshTelemetry();
     });
+    this.querySelector("#close-history")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this._historySelection = null;
+      this._historyPoints = [];
+      this._historyError = "";
+      this.render();
+    });
+    const historySelections = {
+      main: {
+        title: "Mower Reported Charge",
+        entities: [this.config.entities.battery],
+        mode: "single",
+      },
+      "drive-average": {
+        title: "80V Drive Pack Average",
+        entities: driveEntities,
+        mode: "average",
+      },
+      "accessory-average": {
+        title: "40V Bay Average",
+        entities: accessoryEntities,
+        mode: "average",
+      },
+      "all-average": {
+        title: "All Installed Bay Average",
+        entities: allEntities,
+        mode: "average",
+      },
+    };
+    this.querySelectorAll("[data-history]").forEach((node) => {
+      node.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const selection = historySelections[node.dataset.history];
+        if (selection) this.showBatteryHistory(selection);
+      });
+    });
+    this.querySelectorAll("[data-history-bay]").forEach((node) => {
+      node.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const index = Number(node.dataset.historyBay);
+        if (Number.isFinite(index)) {
+          this.showBatteryHistory({
+            title: `Bay ${index} Charge`,
+            entities: [this.batteryEntityId(index)],
+            mode: "single",
+          });
+        }
+      });
+    });
+  }
+
+  historyPanel() {
+    if (!this._historySelection) return "";
+    const points = this._historyPoints || [];
+    const values = points.map((point) => point.value).filter((value) => Number.isFinite(value));
+    const latest = values.length ? values[values.length - 1] : null;
+    const min = values.length ? Math.min(...values) : null;
+    const max = values.length ? Math.max(...values) : null;
+    return `
+      <section class="card panel stack history-card">
+        <div class="history-head">
+          <div>
+            <h2>${this.icon("mdi:chart-line")} ${this._historySelection.title}</h2>
+            <p class="muted">Last 24 hours</p>
+          </div>
+          <button type="button" class="icon-button" id="close-history">${this.icon("mdi:close")}</button>
+        </div>
+        ${
+          this._historyLoading
+            ? '<div class="history-empty">Loading history...</div>'
+            : this._historyError
+              ? `<div class="history-empty">${this._historyError}</div>`
+              : this.historyGraph(points)
+        }
+        <div class="history-stats">
+          ${this.summary("mdi:battery", "Latest", latest === null ? "N/A" : `${latest}%`)}
+          ${this.summary("mdi:arrow-down", "Low", min === null ? "N/A" : `${min}%`)}
+          ${this.summary("mdi:arrow-up", "High", max === null ? "N/A" : `${max}%`)}
+          ${this.summary("mdi:counter", "Samples", `${values.length}`)}
+        </div>
+      </section>
+    `;
+  }
+
+  historyGraph(points) {
+    if (!points?.length) {
+      return '<div class="history-empty">No battery history found for this period</div>';
+    }
+    const width = 720;
+    const height = 180;
+    const pad = 16;
+    const minTime = Math.min(...points.map((point) => point.time));
+    const maxTime = Math.max(...points.map((point) => point.time));
+    const minValue = Math.min(0, Math.min(...points.map((point) => point.value)));
+    const maxValue = Math.max(100, Math.max(...points.map((point) => point.value)));
+    const xFor = (time) => {
+      if (maxTime === minTime) return width - pad;
+      return pad + ((time - minTime) / (maxTime - minTime)) * (width - pad * 2);
+    };
+    const yFor = (value) => {
+      if (maxValue === minValue) return height / 2;
+      return height - pad - ((value - minValue) / (maxValue - minValue)) * (height - pad * 2);
+    };
+    const line = points
+      .map((point, index) => `${index === 0 ? "M" : "L"} ${xFor(point.time).toFixed(1)} ${yFor(point.value).toFixed(1)}`)
+      .join(" ");
+    const first = points[0];
+    const last = points[points.length - 1];
+    const area = `${line} L ${xFor(last.time).toFixed(1)} ${height - pad} L ${xFor(first.time).toFixed(1)} ${height - pad} Z`;
+    return `
+      <svg class="history-graph" viewBox="0 0 ${width} ${height}" role="img" aria-label="${this._historySelection.title} battery history">
+        <path class="history-fill" d="${area}"></path>
+        <path class="history-path" d="${line}"></path>
+      </svg>
+    `;
   }
 
   averageLevel(bays) {
@@ -601,8 +869,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
     return classes[0];
   }
 
-  metric(icon, label, value) {
-    return `<div class="metric"><span class="metric-label">${this.icon(icon)} ${label}</span><strong>${value}</strong></div>`;
+  metric(icon, label, value, historyKey = "") {
+    const attrs = historyKey ? ` data-history="${historyKey}"` : "";
+    const classes = historyKey ? " metric history-trigger" : "metric";
+    return `<div class="${classes}"${attrs}><span class="metric-label">${this.icon(icon)} ${label}</span><strong>${value}</strong></div>`;
   }
 
   usage(icon, label, value) {
@@ -613,7 +883,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
     return `<div class="mini">${this.icon(icon)}<span class="muted">${label}</span><strong>${value}</strong></div>`;
   }
 
-  batteryGroup(title, subtitle, bays, voltageClass) {
+  batteryGroup(title, subtitle, bays, voltageClass, historyKey = "") {
     const average = this.averageLevel(bays);
     const installed = bays.filter((bay) => bay.present).length;
     const count = installed || bays.length;
@@ -623,7 +893,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
         <h3><span>${title}</span><strong>${voltageClass ? `${voltageClass}V class` : "Open"}</strong></h3>
         <p class="group-subtitle">${subtitle}</p>
         <div class="metric" style="padding:8px 0;"><span class="muted">${countLabel}</span><strong>${count} bay${count === 1 ? "" : "s"}</strong></div>
-        <div class="metric" style="padding:8px 0;"><span class="muted">Average</span><strong>${average === null ? "N/A" : `${average}%`}</strong></div>
+        <div class="metric ${historyKey ? "history-trigger" : ""}" ${historyKey ? `data-history="${historyKey}"` : ""} style="padding:8px 0;"><span class="muted">Average</span><strong>${average === null ? "N/A" : `${average}%`}</strong></div>
         <div class="bay-list">
           ${bays.length ? bays.map((bay) => this.bayRow(bay)).join("") : '<div class="muted">None</div>'}
         </div>
@@ -636,7 +906,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
     const color = this.chargeColor(level);
     const width = level === null ? "0%" : `${Math.max(0, Math.min(100, level))}%`;
     return `
-      <div class="bay ${bay.present ? "" : "empty"}" style="--bay-color:${color};--level:${width};">
+      <div class="bay ${bay.present ? "history-trigger" : "empty"}" ${bay.present ? `data-history-bay="${bay.index}"` : ""} style="--bay-color:${color};--level:${width};">
         <div>
           <div class="bay-name">Bay ${bay.index}</div>
           <strong>${bay.present ? `${bay.voltage || "?"}V` : "Empty"}</strong>
@@ -657,10 +927,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v8", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v9", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v8",
+  type: "ryobi-zt54-dashboard-card-v9",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
