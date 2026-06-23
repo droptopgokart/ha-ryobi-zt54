@@ -2,7 +2,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
   setConfig(config) {
     this.config = {
       title: 'RYOBI 54" ZTR',
-      assetVersion: "20260623-1",
+      assetVersion: "20260623-2",
       entities: {
         battery: "sensor.ryobi_zero_turn_battery",
         signal: "sensor.ryobi_zero_turn_signal_strength",
@@ -169,31 +169,86 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 
   async showBatteryHistory(selection) {
-    if (!this._hass?.callWS || !selection?.entities?.length) return;
+    if (!selection?.entities?.length) return;
     this._historySelection = selection;
     this._historyLoading = true;
     this._historyError = "";
     this._historyPoints = [];
     this.render();
+    this.scrollHistoryIntoView();
 
     const end = new Date();
     const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     try {
-      const response = await this._hass.callWS({
-        type: "history/history_during_period",
-        start_time: start.toISOString(),
-        end_time: end.toISOString(),
-        entity_ids: selection.entities,
-        minimal_response: false,
-        no_attributes: true,
-      });
-      this._historyPoints = this.historyPoints(response, selection);
+      const response = await this.loadHistory(start, end, selection);
+      const points = this.historyPoints(response, selection);
+      this._historyFallback = false;
+      this._historyPoints = points.length ? points : this.currentHistoryPoints(selection);
     } catch (err) {
       this._historyError = "Could not load history";
     } finally {
       this._historyLoading = false;
       this.render();
+      this.scrollHistoryIntoView();
     }
+  }
+
+  async loadHistory(start, end, selection) {
+    if (this._hass?.callWS) {
+      try {
+        return await this._hass.callWS({
+          type: "history/history_during_period",
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
+          entity_ids: selection.entities,
+          minimal_response: false,
+          no_attributes: true,
+        });
+      } catch (err) {
+        // Fall through to the REST API. Some frontend contexts do not expose
+        // the history websocket command even when the REST endpoint works.
+      }
+    }
+
+    if (!this._hass?.callApi) {
+      throw new Error("No Home Assistant history API available");
+    }
+
+    const params = new URLSearchParams({
+      filter_entity_id: selection.entities.join(","),
+      end_time: end.toISOString(),
+      minimal_response: "0",
+      no_attributes: "1",
+    });
+    return this._hass.callApi(
+      "GET",
+      `history/period/${encodeURIComponent(start.toISOString())}?${params.toString()}`,
+    );
+  }
+
+  currentHistoryPoints(selection) {
+    const now = Date.now();
+    const values = selection.entities
+      .map((entity) => Number(this.state(entity)?.state))
+      .filter((value) => Number.isFinite(value));
+    if (!values.length) return [];
+    const value = selection.mode === "average"
+      ? Math.round(values.reduce((sum, item) => sum + item, 0) / values.length)
+      : values[0];
+    this._historyFallback = true;
+    return [
+      { time: now - 60 * 60 * 1000, value },
+      { time: now, value },
+    ];
+  }
+
+  scrollHistoryIntoView() {
+    window.requestAnimationFrame(() => {
+      this.querySelector("#battery-history")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   }
 
   historyPoints(response, selection) {
@@ -574,6 +629,7 @@ class RyobiZt54DashboardCard extends HTMLElement {
         }
         .history-card {
           grid-column: 1 / -1;
+          scroll-margin-top: 80px;
         }
         .history-head {
           display: flex;
@@ -660,6 +716,8 @@ class RyobiZt54DashboardCard extends HTMLElement {
             </div>
           </section>
 
+          ${this.historyPanel()}
+
           <section class="card panel stack">
             <h2>${this.icon("mdi:battery-high")} Battery Overview</h2>
             <div>
@@ -682,8 +740,6 @@ class RyobiZt54DashboardCard extends HTMLElement {
               ${this.batteryGroup("Open Bays", "Installed state from Bluetooth telemetry.", emptyBays, null)}
             </div>
           </section>
-
-          ${this.historyPanel()}
 
           <section class="card panel stack">
             <h2>${this.icon("mdi:clock-outline")} Runtime & Usage</h2>
@@ -795,11 +851,11 @@ class RyobiZt54DashboardCard extends HTMLElement {
     const min = values.length ? Math.min(...values) : null;
     const max = values.length ? Math.max(...values) : null;
     return `
-      <section class="card panel stack history-card">
+      <section class="card panel stack history-card" id="battery-history">
         <div class="history-head">
           <div>
             <h2>${this.icon("mdi:chart-line")} ${this._historySelection.title}</h2>
-            <p class="muted">Last 24 hours</p>
+            <p class="muted">${this._historyFallback ? "Current value shown because recorder history is empty" : "Last 24 hours"}</p>
           </div>
           <button type="button" class="icon-button" id="close-history">${this.icon("mdi:close")}</button>
         </div>
@@ -927,10 +983,10 @@ class RyobiZt54DashboardCard extends HTMLElement {
   }
 }
 
-customElements.define("ryobi-zt54-dashboard-card-v9", RyobiZt54DashboardCard);
+customElements.define("ryobi-zt54-dashboard-card-v10", RyobiZt54DashboardCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "ryobi-zt54-dashboard-card-v9",
+  type: "ryobi-zt54-dashboard-card-v10",
   name: "Ryobi ZT54 Dashboard",
   description: "Live Ryobi ZT54 mower telemetry dashboard",
 });
